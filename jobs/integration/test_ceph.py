@@ -2,7 +2,8 @@ import asyncio
 import pytest
 from .base import (
     UseModel,
-    _juju_wait
+    _juju_wait,
+    run_test
 )
 from .utils import (
     asyncify,
@@ -171,9 +172,4 @@ async def validate_ceph(model):
 
 @pytest.mark.asyncio
 async def test_ceph(log_dir):
-    controller = Controller()
-    await controller.connect_current()
-    cloud = await controller.get_cloud()
-    if cloud is not 'localhost':
-        async with UseModel() as model:
-            validate_ceph(model)
+    run_test(test_function=validate_ceph)

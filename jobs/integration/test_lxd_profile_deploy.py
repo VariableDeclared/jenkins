@@ -18,6 +18,7 @@ from .utils import (
 )
 from .logger import log, log_calls_async
 from juju.controller import Controller
+from juju.errors import JujuError
 
 LXD_PROFILE = {
     'config': {
@@ -58,9 +59,9 @@ async def test_lxd_profile_deploy_force(model, charm_name, charm_version):
     #         charm_version
     #     )
     # )
-    ######CHANGE: Testing purposes.
-    app = await model.deploy(charm_name)
-    ######
+    # ##### CHANGE: Testing purposes.
+    app = await model.deploy(charm_name, force=False)
+    # #####
     time.sleep(20)
     log('waiting...')
     asyncify(_juju_wait)
@@ -93,8 +94,25 @@ async def test_lxd_profile_deploy_force(model, charm_name, charm_version):
     log('Deployed Profile: %s' % loaded_yaml)
     log('Expected Profile: %s' % LXD_PROFILE)
     assert loaded_yaml == LXD_PROFILE
+    # .split(/) -- TESTING -REMOVE
+    await model.applications[charm_name.split('/')[-1]].destroy()
 
+    log('Waiting...')
+    asyncify(_juju_wait)
 
+    async def test_deploy_fail(model):
+        # await model.deploy(
+        #     "cs:~containers/{}-{}".format(
+        #         charm_name,
+        #         charm_version
+        #     ),
+        #   force=False
+        # )
+        # ##### CHANGE: Testing purposes.
+        await model.deploy(charm_name, force=False)
+        # #####
+    with pytest.raises(JujuError, match=r"$[a-zA-Z]* invalid lxd-profile [a-zA-Z]*"):
+        await test_deploy_fail(model)
 
 
 @pytest.mark.asyncio
@@ -103,8 +121,17 @@ async def test_lxd_profiles(log_dir):
     await controller.connect()
     async with UseModel() as model:
         log('Calling lxd deploy')
+        # await test_lxd_profile_deploy_force(
+        #     model,
+        #     os.environ['CHARM_NAME'],
+        #     os.environ['CHARM_VERSION']
+        # )
+        # ###### TESTING ######
         await test_lxd_profile_deploy_force(
             model,
             "/home/pjds/charms/builds/kubernetes-worker",
-            "0"
+            os.environ['CHARM_VERSION']
         )
+
+
+def test_lxd_profile_upgrade

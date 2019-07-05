@@ -2,18 +2,39 @@ import os
 import asyncio
 from juju.model import Model
 from sh import juju_wait
+from juju.controller import Controller
 
+
+async def run_test(**kwargs):
+    """
+        Gets the controller and model and runs tests.
+
+        :param func test_function: The function to run,
+            should accept model=value.
+        :param **kwargs any: Passed to your test function
+
+    """
+    controller = Controller()
+    await controller.connect()
+    cloud = await controller.get_cloud()
+    if cloud != 'localhost':
+        async with UseModel() as model:
+            await kwargs['test_function'](**kwargs, model=model)
+        await controller.connect()
 
 
 def _model_from_env():
     return os.environ.get('MODEL') or \
         'validate-{}'.format(os.environ['BUILD_NUMBER'])
 
+
 def _controller_from_env():
     return os.environ.get('CONTROLLER', 'jenkins-ci-aws')
 
+
 def _series_from_env():
     return os.environ.get('SERIES', 'bionic')
+
 
 def _juju_wait(controller=None, model=None):
     if not controller:

@@ -152,6 +152,3 @@ async def test_juju_proxy_vars(log_dir):
                 model,
                 proxy_app
             )
-            await controller.connect()
-            info = await model.get_info()
-            await controller.destroy_model(info.uuid)
