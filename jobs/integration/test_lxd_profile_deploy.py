@@ -49,6 +49,7 @@ LXD_PROFILE = {
     }
 }
 
+
 async def check_charm_profile_deployed(app, charm_name):
     machine = app.units[0]
     log('app_info %s' % machine.safe_data)
@@ -106,8 +107,8 @@ async def test_lxd_profile_deployed_upgrade(**kwargs):
         app = model.applications[name]
         log('Upgrading charm to edge channel')
         await app.upgrade_charm(channel='edge')
-        log('Waiting 20 seconds for model to settle.')
-        time.sleep(20)
+        log('Waiting for model settle.')
+        asyncify(_juju_wait)()
         await check_charm_profile_deployed(app, name)
 
 
@@ -124,6 +125,6 @@ async def test_lxd_profiles(log_dir):
 async def test_lxd_profile_upgrade():
     await run_test(
         test_function=test_lxd_profile_deployed_upgrade,
-        charm_names=['kubernetes-worker', 'kubernetes-master'],
+        charm_names=['kubernetes-master', 'kubernetes-worker'],
         charm_version=os.environ['CHARM_VERSION']
     )
