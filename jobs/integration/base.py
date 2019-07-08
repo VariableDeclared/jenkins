@@ -17,10 +17,8 @@ async def run_test(**kwargs):
     controller = Controller()
     await controller.connect()
     cloud = await controller.get_cloud()
-    if cloud != 'localhost':
-        async with UseModel() as model:
-            await kwargs['test_function'](**kwargs, model=model)
-        await controller.connect()
+    async with UseModel() as model:
+        await kwargs['test_function'](**kwargs, model=model, cloud=cloud)
 
 
 def _model_from_env():

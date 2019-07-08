@@ -44,7 +44,7 @@ pipeline {
             }
             steps {
                 dir('jobs') {
-                    sh "CONTROLLER=${juju_controller} MODEL=${juju_model} CLOUD=lxd CHARM_NAME=${charm_name} CHARM_VERSION=${charm_version} ${utils.pytest} --junit-xml=validate.xml integration/test_lxd_profile_deploy.py::test_lxd_profile_deploy_force"
+                    sh "CONTROLLER=${juju_controller} MODEL=${juju_model} CLOUD=lxd CHARM_NAME=${params.charm_name} CHARM_VERSION=${params.charm_version} ${utils.pytest} --junit-xml=validate.xml integration/test_lxd_profile_deploy.py::test_lxd_profile_deploy_force"
                 }
             }
         }
@@ -57,7 +57,7 @@ pipeline {
             }
             steps {
                 dir('jobs') {
-                    "CONTROLLER=${juju_controller} MODEL=${juju_model} CLOUD=lxd CHARM_NAME=${charm_name} CHARM_VERSION=${charm_version} ${utils.pytest} --junit-xml=validate.xml integration/test_lxd_profile_deploy.py::test_lxd_profile_upgrade"
+                    "CONTROLLER=${juju_controller} MODEL=${juju_model} CLOUD=lxd CHARM_NAME=${params.charm_name} CHARM_VERSION=${params.charm_version} ${utils.pytest} --junit-xml=validate.xml integration/test_lxd_profile_deploy.py::test_lxd_profile_upgrade"
                 }
             }
         }

@@ -4,6 +4,7 @@ import subprocess
 import yaml
 import time
 import os
+import re
 from .base import (
     UseModel,
     _juju_wait,
@@ -48,74 +49,81 @@ LXD_PROFILE = {
     }
 }
 
+async def check_charm_profile_deployed(app, charm_name):
+    machine = app.units[0]
+    log('app_info %s' % machine.safe_data)
+    # Assume that the only profile with juju-* is
+    # the one we're looking for.
+    result = subprocess.run(
+        ['lxc', 'profile', 'list'],
+        stdout=subprocess.PIPE
+    )
+    for profile_line in result.stdout.decode('utf-8').split('\n'):
+        match = re.search(
+            r"juju-(([a-zA-Z0-9])+-)*{}-[a-zA-Z0-9]*".format(
+                charm_name.split('-')[-1]
+            ),
+            profile_line
+        )
+        if match is not None:
+            model_name = match.group()
+            break
+
+    log('Checking profile for name: %s' % model_name)
+    # In 3.7 stdout=subprocess.PIPE
+    # can be replaced with capture_output... :-]
+    result = subprocess.run(
+        ['lxc', 'profile', 'show', model_name],
+        stdout=subprocess.PIPE
+    )
+
+    config = result.stdout.decode('utf-8')
+
+    loaded_yaml = yaml.load(config)
+
+    # Remove these keys as they differ at run time and are
+    # not related to the configuration.
+    loaded_yaml.pop("name", None)
+    loaded_yaml.pop("used_by", None)
+
+    log('Deployed Profile: %s' % loaded_yaml)
+    log('Expected Profile: %s' % LXD_PROFILE)
+    assert loaded_yaml == LXD_PROFILE
+
 
 @log_calls_async
-async def test_lxd_profile_deploy_force(model, charm_name, charm_version):
-    log('Deploying a the LXD charm')
-
-    charm_names = ['kubernetes-worker', 'kubernetes-master']
-    for name in charm_names:
-        app = model.application[name]
-
-        machine = app.units[0]
-        log('app_info %s' % machine.safe_data)
-
-        model_name = 'juju-{}-{}-{}'.format(
-            os.environ['MODEL'],
-            machine.safe_data['application'],
-            machine.safe_data['name'].split('/')[1]
-        )
-        log('Checking model for name: %s' % model_name)
-        # In 3.7 stdout=subprocess.PIPE
-        # can be replaced with capture_output... :-]
-        result = subprocess.run(
-            ['lxc', 'profile', 'show', model_name],
-            stdout=subprocess.PIPE
-        )
-
-        config = result.stdout.decode('utf-8')
-
-        loaded_yaml = yaml.load(config)
-
-        # Remove these keys as they differ at run time and are
-        # not related to the configuration.
-        loaded_yaml.pop("name", None)
-        loaded_yaml.pop("used_by", None)
-
-        log('Deployed Profile: %s' % loaded_yaml)
-        log('Expected Profile: %s' % LXD_PROFILE)
-        assert loaded_yaml == LXD_PROFILE
+async def test_lxd_profile_deployed(**kwargs):
+    model = kwargs['model']
+    for name in kwargs['charm_names']:
+        app = model.applications[name]
+        await check_charm_profile_deployed(app, name)
 
 
-    # async def test_deploy_fail(model):
-    #     # await model.deploy(
-    #     #     "cs:~containers/{}-{}".format(
-    #     #         charm_name,
-    #     #         charm_version
-    #     #     ),
-    #     #   force=False
-    #     # )
-    #     # ##### CHANGE: Testing purposes.
-    #     await model.deploy(charm_name, force=False)
-    #     # #####
-    # with pytest.raises(JujuError, match=r"$[a-zA-Z]* invalid lxd-profile [a-zA-Z]*"):
-    #     await test_deploy_fail(model)
+@log_calls_async
+async def test_lxd_profile_deployed_upgrade(**kwargs):
+    model = kwargs['model']
+    for name in kwargs['charm_names']:
+        app = model.applications[name]
+        log('Upgrading charm to edge channel')
+        await app.upgrade_charm(channel='edge')
+        log('Waiting 20 seconds for model to settle.')
+        time.sleep(20)
+        await check_charm_profile_deployed(app, name)
 
 
 @pytest.mark.asyncio
 async def test_lxd_profiles(log_dir):
-    controller = Controller()
-    await controller.connect()
-    async with UseModel() as model:
-        log('Calling lxd deploy')
-        # await test_lxd_profile_deploy_force(
-        #     model,
-        #     os.environ['CHARM_NAME'],
-        #     os.environ['CHARM_VERSION']
-        # )
-        # ###### TESTING ######
-        await test_lxd_profile_deploy_force(
-            model,
-            "/home/pjds/charms/builds/kubernetes-worker",
-            os.environ['CHARM_VERSION']
-        )
+    await run_test(
+        test_function=test_lxd_profile_deployed,
+        charm_names=['kubernetes-worker', 'kubernetes-master'],
+        charm_version=os.environ['CHARM_VERSION']
+    )
+
+
+@pytest.mark.asyncio
+async def test_lxd_profile_upgrade():
+    await run_test(
+        test_function=test_lxd_profile_deployed_upgrade,
+        charm_names=['kubernetes-worker', 'kubernetes-master'],
+        charm_version=os.environ['CHARM_VERSION']
+    )
